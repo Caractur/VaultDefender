@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  auth0Id   String   @unique
+  email     String?
+  name      String?
+  avatarUrl String?
+  githubConnected Boolean @default(false)
+  githubUsername   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  permissions      Permission[]
+  auditLogs        AuditLog[]
+  approvalRequests ApprovalRequest[]
+}
+
+model Permission {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repoFullName   String
+  allowedPaths   String   @default("[]")
+  allowedActions String   @default("[]")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, repoFullName])
+}
+
+model AuditLog {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action           String
+  toolName         String?
+  repo             String?
+  path             String?
+  riskLevel        String
+  decision         String
+  reason           String?
+  approvalRequired Boolean  @default(false)
+  approved         Boolean?
+  metadata         String?
+  timestamp        DateTime @default(now())
+}
+
+model ApprovalRequest {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String
+  toolName   String
+  repo       String
+  path       String?
+  riskLevel  String
+  status     String    @default("pending")
+  reason     String?
+  metadata   String?
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+}
