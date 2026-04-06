@@ -10,6 +10,10 @@ const BASE_TOOL_RISK: Record<string, RiskLevel> = {
   [TOOL_NAMES.EDIT_FILE]: RISK_LEVELS.MEDIUM,
 };
 
+const DIRECT_PROTECTED_BRANCH_WRITE_TOOLS = new Set<ToolName>([
+  TOOL_NAMES.EDIT_FILE,
+]);
+
 function matchesProtectedBranch(branch: string): boolean {
   return PROTECTED_BRANCH_PATTERNS.some((pattern) => {
     if (pattern.endsWith("/*")) {
@@ -29,6 +33,7 @@ function touchesSensitivePath(path: string): boolean {
 /**
  * Classify the risk level of a tool invocation, considering both
  * the base tool risk and contextual factors (path, branch).
+ * Protected branches only escalate tools that write directly to that branch.
  */
 export function classifyRisk(
   toolName: ToolName,
@@ -42,7 +47,11 @@ export function classifyRisk(
     reasons.push(`Path "${opts.path}" is security-sensitive`);
   }
 
-  if (opts.branch && matchesProtectedBranch(opts.branch)) {
+  if (
+    opts.branch &&
+    DIRECT_PROTECTED_BRANCH_WRITE_TOOLS.has(toolName) &&
+    matchesProtectedBranch(opts.branch)
+  ) {
     level = RISK_LEVELS.HIGH;
     reasons.push(`Branch "${opts.branch}" is protected`);
   }
