@@ -4,6 +4,7 @@ import {
   getCredentialsFromTokenVault,
 } from "@auth0/ai-vercel";
 import { getRefreshToken } from "./auth0";
+import { GITHUB_WRITE_SCOPES } from "./github-scopes";
 
 /**
  * Token Vault authorizer using refresh-token exchange (official @auth0/ai-vercel pattern).
@@ -20,15 +21,22 @@ const auth0AI = new Auth0AI({
   },
 });
 
-export const withGitHubConnection = auth0AI.withTokenVault({
+const baseGitHubTokenVaultConfig = {
   connection: "github",
-  // GitHub permissions come from the GitHub app itself, not Token Vault scopes.
-  // Auth0's GitHub Token Vault integration currently expects an empty scope list.
-  scopes: [],
   // Use a fresh Token Vault exchange for each tool call so we do not reuse
   // stale GitHub credentials across a long-lived chat thread.
   credentialsContext: "tool-call",
   refreshToken: getRefreshToken,
+} as const;
+
+export const withGitHubConnection = auth0AI.withTokenVault({
+  ...baseGitHubTokenVaultConfig,
+  scopes: [],
+});
+
+export const withGitHubWriteConnection = auth0AI.withTokenVault({
+  ...baseGitHubTokenVaultConfig,
+  scopes: [...GITHUB_WRITE_SCOPES],
 });
 
 export { getAccessTokenFromTokenVault, getCredentialsFromTokenVault };

@@ -1,13 +1,16 @@
 import { z } from "zod";
 import { tool } from "ai";
 import { executeTool } from "./executor";
-import { withGitHubConnection } from "@/lib/auth/auth0-ai";
+import {
+  withGitHubConnection,
+  withGitHubWriteConnection,
+} from "@/lib/auth/auth0-ai";
 import { TOOL_NAMES } from "@/lib/constants";
 
 /**
  * Build AI SDK tool definitions wired to the policy-guarded executor.
- * Each tool is wrapped with withGitHubConnection which handles
- * Token Vault exchange via the Auth0 AI SDK.
+ * Each tool is wrapped with the appropriate GitHub Token Vault authorizer
+ * so write actions can request elevated provider scopes when needed.
  */
 export function buildAgentTools(userId: string) {
   return {
@@ -68,7 +71,7 @@ export function buildAgentTools(userId: string) {
       })
     ),
 
-    create_branch: withGitHubConnection(
+    create_branch: withGitHubWriteConnection(
       tool({
         description: "Create a new branch in a repository. Medium-risk action.",
         inputSchema: z.object({
@@ -90,7 +93,7 @@ export function buildAgentTools(userId: string) {
       })
     ),
 
-    create_draft_pr: withGitHubConnection(
+    create_draft_pr: withGitHubWriteConnection(
       tool({
         description:
           "Open a draft pull request. Medium-risk action. Use after creating a branch.",
@@ -115,7 +118,7 @@ export function buildAgentTools(userId: string) {
       })
     ),
 
-    edit_file: withGitHubConnection(
+    edit_file: withGitHubWriteConnection(
       tool({
         description:
           "Create or update a text file by committing the full file contents to a specific branch. Medium-risk action.",

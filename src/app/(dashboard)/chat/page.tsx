@@ -13,6 +13,7 @@ import {
 import { ChatMessages } from "@/components/chat/chat-messages";
 import { ChatInput } from "@/components/chat/chat-input";
 import { TokenVaultConsentPopup } from "@/components/auth0-ai/TokenVault/popup";
+import { getGitHubScopesForTool } from "@/lib/auth/github-scopes";
 import { Shield } from "lucide-react";
 
 function isTokenVaultToolErrorPart(
@@ -56,13 +57,18 @@ export default function ChatPage() {
     .flatMap((message) => [...message.parts].reverse())
     .find(isTokenVaultToolErrorPart);
 
+  const fallbackToolName = tokenVaultErrorPart
+    ? getToolName(tokenVaultErrorPart)
+    : undefined;
+  const fallbackRequiredScopes = getGitHubScopesForTool(fallbackToolName);
+
   const tokenVaultConsentInterrupt =
     toolInterrupt && TokenVaultInterrupt.isInterrupt(toolInterrupt)
       ? toolInterrupt
       : tokenVaultErrorPart
         ? {
             connection: "github",
-            requiredScopes: ["repo"],
+            requiredScopes: fallbackRequiredScopes,
             authorizationParams: {},
             resume: () => {
               const toolName = getToolName(tokenVaultErrorPart);
@@ -77,6 +83,9 @@ export default function ChatPage() {
             },
           }
         : null;
+
+  const requestedScopes = tokenVaultConsentInterrupt?.requiredScopes ?? [];
+  const needsWriteAccess = requestedScopes.includes("repo");
 
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setInput(e.target.value);
@@ -116,8 +125,14 @@ export default function ChatPage() {
             connectWidget={{
               title: "Authorize GitHub access",
               description:
-                "VaultDefender uses Auth0 Token Vault to request GitHub access only when a tool needs it. Complete the GitHub/Auth0 consent flow, then this chat will resume automatically.",
-              action: { label: "Continue with GitHub" },
+                needsWriteAccess
+                  ? "VaultDefender needs GitHub repo write access to create branches, open draft PRs, or commit files. Complete the GitHub/Auth0 consent flow, then this chat will resume automatically."
+                  : "VaultDefender uses Auth0 Token Vault to request GitHub access only when a tool needs it. Complete the GitHub/Auth0 consent flow, then this chat will resume automatically.",
+              action: {
+                label: needsWriteAccess
+                  ? "Grant GitHub write access"
+                  : "Continue with GitHub",
+              },
               containerClassName:
                 "border-amber-500/40 bg-amber-500/5 text-foreground",
             }}
