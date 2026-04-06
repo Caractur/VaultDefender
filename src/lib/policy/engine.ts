@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { classifyRisk, requiresApproval } from "./risk";
 import { logAuditEntry } from "@/lib/audit/logger";
 import type { PolicyDecision, ToolInvocation } from "./types";
+import { resolveRepoPermission } from "./repo-resolution";
 
 function safeParseJsonArray(raw: string): string[] | null {
   try {
@@ -14,7 +15,7 @@ function safeParseJsonArray(raw: string): string[] | null {
 }
 
 /**
- * Central policy guard — every tool invocation passes through here.
+ * Central policy guard - every tool invocation passes through here.
  *
  * This is the core of VaultDefender's authorization model:
  * 1. GitHub grants repo-level access through its OAuth scopes.
@@ -28,7 +29,7 @@ export async function evaluatePolicy(
   const { toolName, repo, path } = invocation;
 
   const risk = classifyRisk(toolName, {
-    path: path,
+    path,
     branch: invocation.branch,
   });
 
@@ -43,11 +44,9 @@ export async function evaluatePolicy(
     return decision;
   }
 
-  const permission = await prisma.permission.findUnique({
-    where: { userId_repoFullName: { userId, repoFullName: repo } },
-  });
+  const repoResolution = await resolveRepoPermission(userId, repo);
 
-  if (!permission || !permission.isActive) {
+  if (repoResolution.kind === "missing") {
     const decision: PolicyDecision = {
       allowed: false,
       riskLevel: risk.level,
@@ -58,16 +57,48 @@ export async function evaluatePolicy(
     return decision;
   }
 
-  // Fail-closed: if stored JSON is corrupted, deny access
+  if (repoResolution.kind === "inactive") {
+    const decision: PolicyDecision = {
+      allowed: false,
+      riskLevel: risk.level,
+      reason: `Repository "${repoResolution.permission.repoFullName}" is configured but disabled`,
+      requiresApproval: false,
+    };
+    await logAuditEntry(
+      userId,
+      { ...invocation, repo: repoResolution.permission.repoFullName },
+      decision
+    );
+    return decision;
+  }
+
+  if (repoResolution.kind === "ambiguous") {
+    const decision: PolicyDecision = {
+      allowed: false,
+      riskLevel: risk.level,
+      reason: `Repository reference "${repoResolution.requestedRepo}" is ambiguous. Use one of: ${repoResolution.matches.join(", ")}`,
+      requiresApproval: false,
+    };
+    await logAuditEntry(userId, invocation, decision);
+    return decision;
+  }
+
+  const permission = repoResolution.permission;
+  const invocationWithCanonicalRepo =
+    permission.repoFullName === repo
+      ? invocation
+      : { ...invocation, repo: permission.repoFullName };
+
+  // Fail-closed: if stored JSON is corrupted, deny access.
   const allowedPaths = safeParseJsonArray(permission.allowedPaths);
   if (allowedPaths === null) {
     const decision: PolicyDecision = {
       allowed: false,
       riskLevel: risk.level,
-      reason: "Permission data corrupted — access denied for safety",
+      reason: "Permission data corrupted - access denied for safety",
       requiresApproval: false,
     };
-    await logAuditEntry(userId, invocation, decision);
+    await logAuditEntry(userId, invocationWithCanonicalRepo, decision);
     return decision;
   }
 
@@ -85,7 +116,7 @@ export async function evaluatePolicy(
         reason: `Path "${path}" is outside allowed prefixes: ${allowedPaths.join(", ")}`,
         requiresApproval: false,
       };
-      await logAuditEntry(userId, invocation, decision);
+      await logAuditEntry(userId, invocationWithCanonicalRepo, decision);
       return decision;
     }
   }
@@ -95,10 +126,10 @@ export async function evaluatePolicy(
     const decision: PolicyDecision = {
       allowed: false,
       riskLevel: risk.level,
-      reason: "Permission data corrupted — access denied for safety",
+      reason: "Permission data corrupted - access denied for safety",
       requiresApproval: false,
     };
-    await logAuditEntry(userId, invocation, decision);
+    await logAuditEntry(userId, invocationWithCanonicalRepo, decision);
     return decision;
   }
 
@@ -106,20 +137,19 @@ export async function evaluatePolicy(
     const decision: PolicyDecision = {
       allowed: false,
       riskLevel: risk.level,
-      reason: `Action "${toolName}" is not allowed for "${repo}"`,
+      reason: `Action "${toolName}" is not allowed for "${permission.repoFullName}"`,
       requiresApproval: false,
     };
-    await logAuditEntry(userId, invocation, decision);
+    await logAuditEntry(userId, invocationWithCanonicalRepo, decision);
     return decision;
   }
 
   if (requiresApproval(risk.level)) {
-    // Check for existing approved request (scoped to path)
     const existingApproval = await prisma.approvalRequest.findFirst({
       where: {
         userId,
         toolName,
-        repo,
+        repo: permission.repoFullName,
         path: invocation.path ?? null,
         status: "approved",
         createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) },
@@ -128,12 +158,11 @@ export async function evaluatePolicy(
     });
 
     if (!existingApproval) {
-      // Deduplicate: don't create if an identical pending request already exists
       const existingPending = await prisma.approvalRequest.findFirst({
         where: {
           userId,
           toolName,
-          repo,
+          repo: permission.repoFullName,
           path: invocation.path ?? null,
           status: "pending",
         },
@@ -143,9 +172,9 @@ export async function evaluatePolicy(
         await prisma.approvalRequest.create({
           data: {
             userId,
-            action: `${toolName} on ${repo}${path ? ` at ${path}` : ""}`,
+            action: `${toolName} on ${permission.repoFullName}${path ? ` at ${path}` : ""}`,
             toolName,
-            repo,
+            repo: permission.repoFullName,
             path,
             riskLevel: risk.level,
             reason: risk.reasons.join("; "),
@@ -159,7 +188,7 @@ export async function evaluatePolicy(
         reason: `High-risk action requires approval: ${risk.reasons.join("; ")}`,
         requiresApproval: true,
       };
-      await logAuditEntry(userId, invocation, decision);
+      await logAuditEntry(userId, invocationWithCanonicalRepo, decision);
       return decision;
     }
   }
@@ -170,7 +199,7 @@ export async function evaluatePolicy(
     reason: "Policy check passed",
     requiresApproval: false,
   };
-  await logAuditEntry(userId, invocation, decision);
+  await logAuditEntry(userId, invocationWithCanonicalRepo, decision);
   return decision;
 }
 
@@ -182,9 +211,7 @@ export async function getAllowedPathsForRepo(
   userId: string,
   repoFullName: string
 ): Promise<string[] | null> {
-  const permission = await prisma.permission.findUnique({
-    where: { userId_repoFullName: { userId, repoFullName } },
-  });
-  if (!permission || !permission.isActive) return null;
-  return safeParseJsonArray(permission.allowedPaths) ?? [];
+  const repoResolution = await resolveRepoPermission(userId, repoFullName);
+  if (repoResolution.kind !== "matched") return null;
+  return safeParseJsonArray(repoResolution.permission.allowedPaths) ?? [];
 }

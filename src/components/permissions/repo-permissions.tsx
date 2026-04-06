@@ -15,6 +15,7 @@ const TOOL_LABELS: Record<string, string> = {
   [TOOL_NAMES.REVIEW_PR]: "Review PR",
   [TOOL_NAMES.CREATE_BRANCH]: "Create branch",
   [TOOL_NAMES.CREATE_DRAFT_PR]: "Create draft PR",
+  [TOOL_NAMES.EDIT_FILE]: "Edit file",
 };
 
 const ALL_ACTIONS = Object.values(TOOL_NAMES).map((value) => ({

@@ -7,6 +7,7 @@ const BASE_TOOL_RISK: Record<string, RiskLevel> = {
   [TOOL_NAMES.REVIEW_PR]: RISK_LEVELS.LOW,
   [TOOL_NAMES.CREATE_BRANCH]: RISK_LEVELS.MEDIUM,
   [TOOL_NAMES.CREATE_DRAFT_PR]: RISK_LEVELS.MEDIUM,
+  [TOOL_NAMES.EDIT_FILE]: RISK_LEVELS.MEDIUM,
 };
 
 function matchesProtectedBranch(branch: string): boolean {

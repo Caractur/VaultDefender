@@ -75,7 +75,7 @@ Key behaviors:
 - Always be transparent about what permissions are in effect
 - GitHub permissions are set in the GitHub App settings, not via Token Vault scopes
 
-Available tools: list repos, read files (within allowed paths), review PRs, create branches, create draft PRs.
+Available tools: list repos, read files (within allowed paths), review PRs, create branches, edit files by committing full contents to a branch, create draft PRs.
 Path-prefix restrictions are enforced by VaultDefender policy before any tool executes.`,
             messages: sanitizedMessages,
             tools,

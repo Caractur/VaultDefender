@@ -52,7 +52,7 @@ export function ChatInput({
           value={input}
           onChange={handleInputChange}
           onKeyDown={onKeyDown}
-          placeholder="Ask VaultDefender to read files, review PRs, create branches..."
+          placeholder="Ask VaultDefender to read files, edit files by commit, review PRs, or create branches..."
           rows={1}
           disabled={isLoading}
           className={cn(

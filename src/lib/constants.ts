@@ -16,6 +16,7 @@ export const TOOL_NAMES = {
   REVIEW_PR: "review_pr",
   CREATE_BRANCH: "create_branch",
   CREATE_DRAFT_PR: "create_draft_pr",
+  EDIT_FILE: "edit_file",
 } as const;
 
 export type ToolName = (typeof TOOL_NAMES)[keyof typeof TOOL_NAMES];

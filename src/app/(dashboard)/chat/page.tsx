@@ -98,7 +98,7 @@ export default function ChatPage() {
           <h1 className="text-lg font-semibold">Agent Chat</h1>
         </div>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Ask VaultDefender to interact with your GitHub repositories within policy boundaries.
+          Ask VaultDefender to inspect repositories and commit approved changes within policy boundaries.
         </p>
       </div>
 
@@ -138,6 +138,7 @@ export default function ChatPage() {
             {[
               "List my accessible repositories",
               "Read the README from owner/repo",
+              "Edit docs/README.md in owner/repo on branch feature/docs with a short summary and commit it",
               "Review PR #42 in owner/repo",
               "Create a branch called feature/new in owner/repo",
             ].map((suggestion) => (

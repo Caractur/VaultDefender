@@ -10,6 +10,7 @@ const TOOL_LABELS: Record<string, string> = {
   [TOOL_NAMES.REVIEW_PR]: "Review PRs",
   [TOOL_NAMES.CREATE_BRANCH]: "Create branch",
   [TOOL_NAMES.CREATE_DRAFT_PR]: "Create draft PR",
+  [TOOL_NAMES.EDIT_FILE]: "Edit files by commit",
 };
 
 const columns = [
@@ -30,6 +31,7 @@ const columns = [
     actions: [
       TOOL_LABELS[TOOL_NAMES.CREATE_BRANCH],
       TOOL_LABELS[TOOL_NAMES.CREATE_DRAFT_PR],
+      TOOL_LABELS[TOOL_NAMES.EDIT_FILE],
     ],
     headerClass: "border-amber-500/40 bg-amber-500/10 text-amber-400",
     dotClass: "bg-amber-500",

@@ -114,5 +114,34 @@ export function buildAgentTools(userId: string) {
         },
       })
     ),
+
+    edit_file: withGitHubConnection(
+      tool({
+        description:
+          "Create or update a text file by committing the full file contents to a specific branch. Medium-risk action.",
+        inputSchema: z.object({
+          repo: z.string().describe("Repository full name (owner/repo)"),
+          path: z.string().describe("Path to the file within the repo"),
+          content: z
+            .string()
+            .describe("Full new UTF-8 file contents to commit"),
+          branch: z
+            .string()
+            .describe("Branch name to commit to (must already exist)"),
+          message: z
+            .string()
+            .optional()
+            .describe("Commit message (defaults to Create/Update <path>)"),
+        }),
+        execute: async (args) => {
+          const { result, policyDecision } = await executeTool(
+            userId,
+            TOOL_NAMES.EDIT_FILE,
+            args
+          );
+          return { ...result, policy: policyDecision };
+        },
+      })
+    ),
   };
 }

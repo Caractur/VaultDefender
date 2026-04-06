@@ -6,10 +6,12 @@ import { readFile } from "./read-file";
 import { reviewPR } from "./review-pr";
 import { createBranch } from "./create-branch";
 import { createDraftPR } from "./create-pr";
+import { editFile } from "./edit-file";
 import { TOOL_NAMES } from "@/lib/constants";
 import type { ToolName } from "@/lib/constants";
 import type { ToolInvocation } from "@/lib/policy/types";
 import type { ToolResult } from "./types";
+import { resolveRepoPermission } from "@/lib/policy/repo-resolution";
 
 const BRANCH_TARGETING_TOOLS = new Set<string>([
   TOOL_NAMES.CREATE_BRANCH,
@@ -24,7 +26,7 @@ function parseRepoFullName(
   }
   const parts = fullName.split("/");
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    return { ok: false, error: `Invalid repository format "${fullName}" — expected owner/repo` };
+    return { ok: false, error: `Invalid repository format "${fullName}" - expected owner/repo` };
   }
   return { ok: true, owner: parts[0], repo: parts[1] };
 }
@@ -39,6 +41,9 @@ export async function executeTool(
   toolName: ToolName,
   args: Record<string, unknown>
 ): Promise<{ result: ToolResult; policyDecision: { allowed: boolean; riskLevel: string; reason: string; requiresApproval: boolean } }> {
+  const requestedRepo =
+    typeof args.repo === "string" && args.repo.trim() ? args.repo.trim() : undefined;
+
   let branch =
     (args.branch as string | undefined) ??
     (args.fromBranch as string | undefined) ??
@@ -51,7 +56,7 @@ export async function executeTool(
 
   const invocation: ToolInvocation = {
     toolName,
-    repo: args.repo as string | undefined,
+    repo: requestedRepo,
     path: args.path as string | undefined,
     branch,
     metadata: args,
@@ -70,6 +75,16 @@ export async function executeTool(
       policyDecision: decision,
     };
   }
+
+  let canonicalRepo = requestedRepo;
+  if (requestedRepo) {
+    const repoResolution = await resolveRepoPermission(userId, requestedRepo);
+    if (repoResolution.kind === "matched") {
+      canonicalRepo = repoResolution.permission.repoFullName;
+    }
+  }
+
+  const executionArgs = canonicalRepo ? { ...args, repo: canonicalRepo } : args;
 
   const tokenResult = getGitHubTokenFromContext();
   if (!tokenResult.ok) {
@@ -91,51 +106,65 @@ export async function executeTool(
         break;
 
       case TOOL_NAMES.READ_FILE: {
-        const parsed = parseRepoFullName(args.repo);
+        const parsed = parseRepoFullName(executionArgs.repo);
         if (!parsed.ok) return { result: { success: false, error: parsed.error }, policyDecision: decision };
         result = await readFile(ctx, {
           owner: parsed.owner,
           repo: parsed.repo,
-          path: args.path as string,
-          ref: args.ref as string | undefined,
+          path: executionArgs.path as string,
+          ref: executionArgs.ref as string | undefined,
         });
         break;
       }
 
       case TOOL_NAMES.REVIEW_PR: {
-        const parsed = parseRepoFullName(args.repo);
+        const parsed = parseRepoFullName(executionArgs.repo);
         if (!parsed.ok) return { result: { success: false, error: parsed.error }, policyDecision: decision };
         result = await reviewPR(ctx, {
           owner: parsed.owner,
           repo: parsed.repo,
-          pullNumber: args.pullNumber as number,
+          pullNumber: executionArgs.pullNumber as number,
           userId,
         });
         break;
       }
 
       case TOOL_NAMES.CREATE_BRANCH: {
-        const parsed = parseRepoFullName(args.repo);
+        const parsed = parseRepoFullName(executionArgs.repo);
         if (!parsed.ok) return { result: { success: false, error: parsed.error }, policyDecision: decision };
         result = await createBranch(ctx, {
           owner: parsed.owner,
           repo: parsed.repo,
-          branchName: args.branchName as string,
-          fromBranch: args.fromBranch as string | undefined,
+          branchName: executionArgs.branchName as string,
+          fromBranch: executionArgs.fromBranch as string | undefined,
         });
         break;
       }
 
       case TOOL_NAMES.CREATE_DRAFT_PR: {
-        const parsed = parseRepoFullName(args.repo);
+        const parsed = parseRepoFullName(executionArgs.repo);
         if (!parsed.ok) return { result: { success: false, error: parsed.error }, policyDecision: decision };
         result = await createDraftPR(ctx, {
           owner: parsed.owner,
           repo: parsed.repo,
-          title: args.title as string,
-          body: args.body as string,
-          head: args.head as string,
-          base: args.base as string | undefined,
+          title: executionArgs.title as string,
+          body: executionArgs.body as string,
+          head: executionArgs.head as string,
+          base: executionArgs.base as string | undefined,
+        });
+        break;
+      }
+
+      case TOOL_NAMES.EDIT_FILE: {
+        const parsed = parseRepoFullName(executionArgs.repo);
+        if (!parsed.ok) return { result: { success: false, error: parsed.error }, policyDecision: decision };
+        result = await editFile(ctx, {
+          owner: parsed.owner,
+          repo: parsed.repo,
+          path: executionArgs.path as string,
+          content: executionArgs.content as string,
+          branch: executionArgs.branch as string,
+          message: executionArgs.message as string | undefined,
         });
         break;
       }
