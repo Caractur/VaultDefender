@@ -19,6 +19,8 @@ import { APP_NAME } from "@/lib/constants";
 const CHAT_MODEL = process.env.CHAT_MODEL || "openai/gpt-4o-mini";
 const MAX_AGENT_STEPS = Number(process.env.MAX_AGENT_STEPS) || 5;
 
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
   try {
     const user = await getAppUser();
