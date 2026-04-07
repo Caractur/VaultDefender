@@ -1,4 +1,4 @@
-# VaultDefender — Least-Privilege GitHub Agent
+# VaultDefender - Least-Privilege GitHub Agent
 
 **VaultDefender is a least-privilege GitHub agent that combines Auth0 Token Vault for delegated GitHub access with an app-level policy engine that restricts what the agent may do inside allowed repositories and path prefixes.**
 
@@ -6,7 +6,7 @@ Built for the Auth0 "Authorized to Act" Hackathon.
 
 ## The Problem
 
-GitHub App permissions operate at the **repository level** with fine-grained controls. When an AI agent needs to interact with a repository, it typically gets access to the entire repo — every file, every branch.
+GitHub App permissions operate at the **repository level** with fine-grained controls. When an AI agent needs to interact with a repository, it typically gets access to the entire repo - every file, every branch.
 
 But safe AI workflows often need **finer boundaries** than upstream providers natively expose. An agent helping with documentation should not be able to modify CI/CD workflows. An agent reviewing code should not be able to merge PRs.
 
@@ -17,26 +17,27 @@ But safe AI workflows often need **finer boundaries** than upstream providers na
 VaultDefender does **not** claim that GitHub natively supports folder-level permissions. Instead, it honestly models the system as:
 
 1. **GitHub grants fine-grained permissions** configured in the GitHub App settings
-2. **Auth0 Token Vault stores and exchanges credentials** — the app never handles raw GitHub tokens
-3. **VaultDefender adds app-level policy enforcement** — path prefixes, action restrictions, and risk-based approval gates — on top
+2. **Auth0 Token Vault stores and exchanges credentials** - the app never handles raw GitHub tokens
+3. **VaultDefender adds app-level policy enforcement** - path prefixes, action restrictions, and risk-based approval gates - on top
 4. **Every tool invocation passes through a central policy guard** before any token exchange or GitHub API call is made
 
 ## Features
 
-- **Auth0 Authentication** — Sign in with GitHub through Auth0; GitHub is the primary sign-in path for the MVP
-- **Token Vault Integration** — OAuth 2.0 Token Exchange (RFC 8693) via Custom API Client; GitHub tokens never stored by the app
-- **5 Policy-Guarded Tools** — List repos, read files, review PRs, create branches, open draft PRs
-- **Central Policy Engine** — Every tool call is evaluated against user-defined repo + path + action rules
-- **Risk Classification** — Low / Medium / High risk levels with automatic escalation
-- **Human Approval Flow** — High-risk actions require explicit user approval before execution
-- **Full Audit Trail** — Every action, decision, and approval logged and surfaced in the UI
-- **Transparent Boundaries** — Users see exactly what the agent can and cannot do
+- **Auth0 Authentication** - Sign in with GitHub through Auth0; GitHub is the primary sign-in path for the MVP
+- **Token Vault Integration** - OAuth 2.0 Token Exchange (RFC 8693) via Custom API Client; GitHub tokens never stored by the app
+- **5 Policy-Guarded Tools** - List repos, read files, review PRs, create branches, open draft PRs
+- **Central Policy Engine** - Every tool call is evaluated against user-defined repo + path + action rules
+- **Risk Classification** - Low / Medium / High risk levels with automatic escalation
+- **Human Approval Flow** - High-risk actions require explicit user approval before execution
+- **Full Audit Trail** - Every action, decision, and approval logged and surfaced in the UI
+- **Transparent Boundaries** - Users see exactly what the agent can and cannot do
 
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js 20+
+- Neon account (free tier works for the public demo)
 - Auth0 account with Token Vault enabled
 - GitHub OAuth App (created via Auth0 Social Connection)
 - OpenRouter API key ([openrouter.ai/keys](https://openrouter.ai/keys))
@@ -51,7 +52,7 @@ npm install
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your Auth0, OpenRouter credentials
+# Edit .env with your Auth0, Neon, and OpenRouter credentials
 # Never commit .env or any secret snapshots; only .env.example belongs in Git
 
 # Set up database
@@ -65,7 +66,7 @@ npm run dev
 
 #### 1. Create a Regular Web Application
 
-1. In Auth0 Dashboard → Applications → Applications → Create Application
+1. In Auth0 Dashboard -> Applications -> Applications -> Create Application
 2. Choose "Regular Web Application"
 3. Set Allowed Callback URLs: `http://localhost:3000/auth/callback`
 4. Set Allowed Logout URLs: `http://localhost:3000`
@@ -73,8 +74,8 @@ npm run dev
 
 #### 2. Create a GitHub Social Connection
 
-1. In Auth0 Dashboard → Authentication → Social → Create Connection → GitHub
-2. Create an OAuth App at GitHub (Settings → Developer Settings → OAuth Apps)
+1. In Auth0 Dashboard -> Authentication -> Social -> Create Connection -> GitHub
+2. Create an OAuth App at GitHub (Settings -> Developer Settings -> OAuth Apps)
 3. Set the GitHub OAuth App Callback URL: `https://YOUR_AUTH0_DOMAIN/login/callback`
 4. Enter the GitHub OAuth App Client ID and Client Secret in Auth0
 5. Under **Purpose**, toggle on **Token Vault** (if available)
@@ -84,18 +85,18 @@ npm run dev
 
 #### 3. Create a Custom API + Custom API Client (for Token Exchange)
 
-1. In Auth0 Dashboard → Applications → APIs → Create API
-2. Set a unique **Identifier** (e.g., `https://vaultdefender.example.com/api`) — this is your `AUTH0_AUDIENCE`
+1. In Auth0 Dashboard -> Applications -> APIs -> Create API
+2. Set a unique **Identifier** (for example, `https://vaultdefender.example.com/api`) - this is your `AUTH0_AUDIENCE`
 3. Click Create
-4. Select your new API → click **Add Application** → enter an application name → click **Add**
-5. Click **Configure Application** — the Application Type should be "Custom API Client"
-6. Under Advanced Settings → Grant Types, verify **Token Vault** is enabled
-7. Note the Custom API Client's **Client ID** and **Client Secret** — these are your `AUTH0_TOKEN_VAULT_CLIENT_ID` / `AUTH0_TOKEN_VAULT_CLIENT_SECRET`
+4. Select your new API -> click **Add Application** -> enter an application name -> click **Add**
+5. Click **Configure Application** - the Application Type should be "Custom API Client"
+6. Under Advanced Settings -> Grant Types, verify **Token Vault** is enabled
+7. Note the Custom API Client's **Client ID** and **Client Secret** - these are your `AUTH0_TOKEN_VAULT_CLIENT_ID` / `AUTH0_TOKEN_VAULT_CLIENT_SECRET`
 
 #### 4. Enable Token Vault on the Regular Web App
 
-1. Navigate to Applications → Applications → your Regular Web App
-2. Under Advanced Settings → Grant Types, enable the **Token Vault** grant type
+1. Navigate to Applications -> Applications -> your Regular Web App
+2. Under Advanced Settings -> Grant Types, enable the **Token Vault** grant type
 3. Save Changes
 
 ### Environment Variables
@@ -103,15 +104,51 @@ npm run dev
 | Variable | Description |
 |----------|-------------|
 | `AUTH0_SECRET` | Random secret for session encryption |
-| `AUTH0_BASE_URL` | App URL (`http://localhost:3000`) |
+| `AUTH0_BASE_URL` | Stable app URL (`http://localhost:3000` locally or your production `https://<app>.vercel.app`) |
 | `AUTH0_DOMAIN` | Auth0 tenant domain |
 | `AUTH0_CLIENT_ID` | Regular Web App client ID |
 | `AUTH0_CLIENT_SECRET` | Regular Web App client secret |
-| `AUTH0_AUDIENCE` | Custom API identifier (e.g., `https://vaultdefender.example.com/api`) |
+| `AUTH0_AUDIENCE` | Custom API identifier (for example, `https://vaultdefender.example.com/api`) |
 | `AUTH0_TOKEN_VAULT_CLIENT_ID` | Custom API Client ID (for token exchange) |
 | `AUTH0_TOKEN_VAULT_CLIENT_SECRET` | Custom API Client secret (for token exchange) |
 | `OPENROUTER_API_KEY` | OpenRouter API key ([openrouter.ai/keys](https://openrouter.ai/keys)) |
-| `DATABASE_URL` | SQLite database path |
+| `DATABASE_URL` | Neon pooled Postgres URL used by the app |
+| `DIRECT_URL` | Direct Neon Postgres URL used by Prisma CLI commands |
+
+## Free Public Demo Deployment
+
+Use Vercel Hobby for hosting and Neon Free for persistence. The production `*.vercel.app` URL for the `main` branch is the official public demo link for hackathon submission.
+
+### 1. Create a Neon database
+
+1. Sign in to Neon and create a new project on the free plan.
+2. Copy the pooled connection string into `DATABASE_URL`.
+3. Copy the direct connection string into `DIRECT_URL`.
+4. Set `AUTH0_BASE_URL` to your stable Vercel production URL, for example `https://vaultdefender.vercel.app`.
+
+### 2. Bootstrap the database
+
+1. Copy `.env.example` to `.env` if you have not already.
+2. Fill in the real Neon, Auth0, and OpenRouter values.
+3. Run `npm run db:push` once to create the schema in Neon before the first public deploy.
+
+### 3. Deploy to Vercel Hobby
+
+1. Push your latest `main` branch to GitHub.
+2. Import the repository into Vercel.
+3. Add the production environment variables from `.env.example` in the Vercel dashboard.
+4. Deploy the `main` branch.
+5. Use the production `*.vercel.app` URL as the official public demo link.
+
+### 4. Update Auth0 for the public URL
+
+1. In the Auth0 Regular Web Application settings, add `https://<your-vercel-domain>/auth/callback` to **Allowed Callback URLs**.
+2. Add `https://<your-vercel-domain>` to **Allowed Logout URLs**.
+3. Keep `http://localhost:3000/auth/callback` and `http://localhost:3000` as local development entries if you still develop locally.
+
+### 5. Preview deployment note
+
+Preview deployments are not the official demo link in this setup. Unless you add explicit Auth0 callback/logout handling for each preview hostname, use only the production Vercel URL for judges and external reviewers.
 
 ## Architecture
 
@@ -123,7 +160,7 @@ See [SECURITY_MODEL.md](./SECURITY_MODEL.md) for the authorization and threat mo
 
 ## GitHub Permissions
 
-GitHub Apps use **fine-grained permissions** set during app creation in GitHub Developer Settings. Token Vault does not set or override these permissions via scopes — it securely stores and exchanges the tokens that carry those permissions.
+GitHub Apps use **fine-grained permissions** set during app creation in GitHub Developer Settings. Token Vault does not set or override these permissions via scopes - it securely stores and exchanges the tokens that carry those permissions.
 
 VaultDefender's app-level policy engine adds **additional restrictions** on top: repository allowlists, path prefix rules, and risk-based approval gates.
 
@@ -133,7 +170,7 @@ VaultDefender's app-level policy engine adds **additional restrictions** on top:
 - **Auth0** (Authentication, Token Vault)
 - **Vercel AI SDK v6 + OpenRouter** (Chat, tool calling via `@openrouter/ai-sdk-provider`)
 - **Octokit** (GitHub API)
-- **Prisma v7 + SQLite** (Persistence)
+- **Prisma v7 + Neon Postgres** (Persistence)
 - **Tailwind CSS v4 + shadcn/ui** (UI)
 - **Zod** (Validation)
 
